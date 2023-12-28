@@ -1,5 +1,5 @@
 const test = require('brittle')
-const UDX = require('udx-native')
+const UDX = require('@screamingvoid/udx')
 const DHT = require('./')
 
 test('bootstrapper', async function (t) {
@@ -154,11 +154,14 @@ test('commit after query', async function (t) {
     })
   }
 
-  const q = swarm[42].query({ command: BEFORE, target: swarm[0].table.id }, {
-    commit (m, dht, query) {
-      return dht.request({ command: AFTER, target: query.target, token: m.token }, m.from)
+  const q = swarm[42].query(
+    { command: BEFORE, target: swarm[0].table.id },
+    {
+      commit (m, dht, query) {
+        return dht.request({ command: AFTER, target: query.target, token: m.token }, m.from)
+      }
     }
-  })
+  )
 
   await q.finished()
 
@@ -304,7 +307,13 @@ test('toArray', async function (t) {
 
   t.alike(a.toArray(), [{ host: '127.0.0.1', port: b.address().port }])
   t.alike(b.toArray(), [{ host: '127.0.0.1', port: a.address().port }])
-  t.alike(bootstrap.toArray().sort(), [{ host: '127.0.0.1', port: a.address().port }, { host: '127.0.0.1', port: b.address().port }].sort())
+  t.alike(
+    bootstrap.toArray().sort(),
+    [
+      { host: '127.0.0.1', port: a.address().port },
+      { host: '127.0.0.1', port: b.address().port }
+    ].sort()
+  )
 })
 
 test('addNode / nodes option', async function (t) {
@@ -408,10 +417,7 @@ test('request session, destroy all', async function (t) {
   a.on('request', () => t.fail())
 
   const s = b.session()
-  const p = [
-    s.request({ command: 42 }, a),
-    s.request({ command: 42 }, a)
-  ]
+  const p = [s.request({ command: 42 }, a), s.request({ command: 42 }, a)]
 
   const err = new Error('destroyed')
 

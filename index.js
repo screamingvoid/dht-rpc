@@ -1,7 +1,7 @@
 const { EventEmitter } = require('events')
 const Table = require('kademlia-routing-table')
 const TOS = require('time-ordered-set')
-const UDX = require('udx-native')
+const UDX = require('@screamingvoid/udx')
 const sodium = require('sodium-universal')
 const c = require('compact-encoding')
 const NatSampler = require('nat-sampler')
@@ -95,7 +95,7 @@ class DHT extends EventEmitter {
   }
 
   get randomized () {
-    return this._nat.host !== null && (this._nat.port === 0)
+    return this._nat.host !== null && this._nat.port === 0
   }
 
   get socket () {
@@ -198,12 +198,30 @@ class DHT extends EventEmitter {
 
     if (opts && opts.size && opts.size > 0) value = b4a.alloc(opts.size)
 
-    const req = this.io.createRequest({ id: null, host, port }, null, true, PING, null, value, (opts && opts.session) || null, (opts && opts.ttl))
+    const req = this.io.createRequest(
+      { id: null, host, port },
+      null,
+      true,
+      PING,
+      null,
+      value,
+      (opts && opts.session) || null,
+      opts && opts.ttl
+    )
     return this._requestToPromise(req, opts)
   }
 
   request ({ token = null, command, target = null, value = null }, { host, port }, opts) {
-    const req = this.io.createRequest({ id: null, host, port }, token, false, command, target, value, (opts && opts.session) || null, (opts && opts.ttl))
+    const req = this.io.createRequest(
+      { id: null, host, port },
+      token,
+      false,
+      command,
+      target,
+      value,
+      (opts && opts.session) || null,
+      opts && opts.ttl
+    )
     return this._requestToPromise(req, opts)
   }
 
@@ -264,7 +282,18 @@ class DHT extends EventEmitter {
       const value = b4a.allocUnsafe(2)
       c.uint16.encode({ start: 0, end: 2, buffer: value }, self.io.serverSocket.address().port)
 
-      self._request(data.from, true, PING_NAT, null, value, null, () => { testNat = true }, noop)
+      self._request(
+        data.from,
+        true,
+        PING_NAT,
+        null,
+        value,
+        null,
+        () => {
+          testNat = true
+        },
+        noop
+      )
     }
   }
 
@@ -326,7 +355,7 @@ class DHT extends EventEmitter {
 
     // refresh it, if we've seen this before
     if (oldNode) {
-      if (sample && (oldNode.sampled === 0 || (this._tick - oldNode.sampled) >= OLD_NODE)) {
+      if (sample && (oldNode.sampled === 0 || this._tick - oldNode.sampled >= OLD_NODE)) {
         oldNode.to = to
         oldNode.sampled = this._tick
         this._natAdd(to.host, to.port)
@@ -413,7 +442,7 @@ class DHT extends EventEmitter {
     }
 
     if (oldest === null) return
-    if ((this._tick - oldest.pinged) < RECENT_NODE && (this._tick - oldest.added) > OLD_NODE) return
+    if (this._tick - oldest.pinged < RECENT_NODE && this._tick - oldest.added > OLD_NODE) return
 
     this._repingAndSwap(newNode, oldest)
   }
@@ -521,7 +550,7 @@ class DHT extends EventEmitter {
     }
 
     // we've recently pinged the oldest one, so only trigger a couple of repings
-    if ((this._tick - oldest.pinged) < RECENT_NODE) {
+    if (this._tick - oldest.pinged < RECENT_NODE) {
       cnt = 2
     }
 
@@ -563,7 +592,8 @@ class DHT extends EventEmitter {
     if (!this.bootstrapped || this.suspended) return
 
     if (this.adaptive && this.ephemeral && --this._stableTicks <= 0) {
-      if (this._lastHost === this._nat.host) { // do not recheck the same network...
+      if (this._lastHost === this._nat.host) {
+        // do not recheck the same network...
         this._stableTicks = MORE_STABLE_TICKS
       } else {
         this._updateNetworkState() // the promise returned here never fails so just ignore it
@@ -599,7 +629,7 @@ class DHT extends EventEmitter {
     const natSampler = this.firewalled ? new NatSampler() : this._nat
 
     // ask remote nodes to ping us on our server socket to see if we have the port open
-    const firewalled = this.firewalled && await this._checkIfFirewalled(natSampler)
+    const firewalled = this.firewalled && (await this._checkIfFirewalled(natSampler))
     if (firewalled) return false
 
     this.firewalled = this.io.firewalled = false
@@ -734,9 +764,7 @@ class DHT extends EventEmitter {
 
     q.on('data', () => {
       // yield to other traffic
-      q.concurrency = this.io.inflight.length < 3
-        ? this.concurrency
-        : backgroundCon
+      q.concurrency = this.io.inflight.length < 3 ? this.concurrency : backgroundCon
     })
 
     return q
